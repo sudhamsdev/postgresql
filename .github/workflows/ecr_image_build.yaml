@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   k8sengineers-image-build:
-    if: ${{ success() && contains(github.event.head_commit.message, 'Image Build') }}
+    if: ${{ success() && contains(github.event.head_commit.message, 'image build') }}
     runs-on: ubuntu-latest
     environment: development
 
@@ -31,7 +31,6 @@ jobs:
       
       - name: download latest DB backup for k8sengineers
         run: |
-          run: |
           export latest_s3_db=$(aws s3 ls s3://k8sengineersdbbackups/db/ --recursive | sort | tail -n-1 | awk '{print $4}' | awk -F'/' '{print $3}')
           aws s3 cp s3://k8sengineersdbbackups/db/${latest_s3_db} scripts/initial_db_backup.sql
     
