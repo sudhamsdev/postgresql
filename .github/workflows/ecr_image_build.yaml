@@ -1,0 +1,54 @@
+name: "k8sengineers postgresql db image and push"
+
+on:
+  push:
+    branches:
+      - "main"
+
+permissions:
+  contents: read
+
+jobs:
+  k8sengineers-image-build:
+    if: ${{ success() && contains(github.event.head_commit.message, 'Image Build') }}
+    runs-on: ubuntu-latest
+    environment: development
+
+    defaults:
+      run:
+        shell: bash
+    
+    steps:
+      - name: download dockerfile contexts
+        uses: actions/checkout@v4
+      
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: download latest DB backup for k8sengineers
+        run: |
+          run: |
+          export latest_s3_db=$(aws s3 ls s3://k8sengineersdbbackups/db/ --recursive | sort | tail -n-1 | awk '{print $4}' | awk -F'/' '{print $3}')
+          aws s3 cp s3://k8sengineersdbbackups/db/${latest_s3_db} scripts/initial_db_backup.sql
+    
+      - name: Login to Amazon ECR private registry
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: 'true'
+      
+      - name: Build, tag, and push the image to Amazon ECR Private registry
+        id: build-image
+        env:
+          ECR_REPOSITORY: ${{ secrets.ECR_REPO }}
+          IMAGE_TAG: latest
+        run: |
+          # Build a docker container and push it to ECR 
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          echo "Pushing image to ECR..."
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
+        
